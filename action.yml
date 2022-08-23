@@ -1,0 +1,30 @@
+name: 'Validate, Build'
+description: 'Validate, Build python poetry project'
+
+runs:
+  using: "composite"
+  steps:
+
+    # Deploy pre-test
+    - name: Create Batfish snapshot
+      run: |
+          mkdir -p snapshot/configs ;
+          cp backups/* snapshot/configs ;
+    - name: Run Batfish tests
+      run: |
+          pip install pybatfish pytest python-dotenv
+          pytest -vvv --tb=short tests/pre_test/001_pre_test.py --disable-pytest-warnings
+
+    # Deploy
+    - uses: actions/download-artifact@v3
+      with:
+        name: generated-configs
+        path: nornir/output
+    - name: Deploy to network
+      run: |
+        poetry run ./nornir/nr_deploy.py
+
+    # Deploy post-test
+    - name: Run SuzieQ tests
+      run: |
+        poetry run pytest -vvv tests/post_test/001_post_test.py
